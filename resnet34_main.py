@@ -1,18 +1,9 @@
 import torch
-import torch.nn as nn
 import csv
 import imagenet
 import functions
-import copy
-import math
 import time
-import numpy as np
 import resnet
-import resnet_kengo
-import pruneAnalysis
-import prune
-import collections
-import sys
 import os
 
 from get_commandlines import get_args
@@ -52,8 +43,8 @@ pthname='resnet34_semilayerdlossplusminus_postponing.pth'
 start = time.time()
 
 #model initialized
-net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
-net2 = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
+net2 = resnet.resnet34(num_classes=1000, pretrained='imagenet')
 layers = [net.layer1,net.layer2,net.layer3,net.layer4]
 layer2s = [net2.layer1,net2.layer2,net2.layer3,net2.layer4]
 preacc,netloss,originaloutputs = functions.evaluate_acc_loss_softmax(net2, device, imagenet.val_loader)
@@ -251,7 +242,7 @@ for i in range(len(valuationfirsts)):
         else: #acc<preacc->postponing
             print('postponing/reduced number of param:',param)
             if flag==0:
-                net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+                net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
             else:
                 weight = torch.load(pthname)
                 net.load_state_dict(weight)
@@ -325,7 +316,7 @@ if postponingflag==0:
             else: #acc<preacc->postponing
                 print('postponing/reduced number of param:',param)
                 if flag==0:
-                    net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+                    net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
                 else:
                     weight = torch.load(pthname)
                     net.load_state_dict(weight)
@@ -400,7 +391,7 @@ if postponingflag==0:
             else: #acc<preacc->postponing
                 print('postponing/reduced number of param:',param)
                 if flag==0:
-                    net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+                    net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
                 else:
                     weight = torch.load(pthname)
                     net.load_state_dict(weight)
@@ -474,7 +465,7 @@ if postponingflag==0:
             else: #acc<preacc->postponing
                 print('postponing/reduced number of param:',param)
                 if flag==0:
-                    net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+                    net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
                 else:
                     weight = torch.load(pthname)
                     net.load_state_dict(weight)
@@ -548,7 +539,7 @@ if postponingflag==0:
             else: #acc<preacc->postponing
                 print('postponing/reduced number of param:',param)
                 if flag==0:
-                    net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+                    net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
                 else:
                     weight = torch.load(pthname)
                     net.load_state_dict(weight)

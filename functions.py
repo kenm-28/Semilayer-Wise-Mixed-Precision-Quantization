@@ -5,13 +5,33 @@ import resnet
 import imagenet
 from torch import optim
 
+
 def channel_wise_quantizationperchan(tensor, bit, i):
+    """Quantize channel.
+
+    Args:
+        tensor (torch.Tensor): Weight(Quantize target tensor)
+        bit (int): Bitwidth
+        i (int): Channel number of the convolution layer depending on number of output channels
+
+    Return:
+        channels(torch.Tensor): After quantized weight
+    """
     channels = 0
     channels = tensor
-    channels[i][:][:][:] = quantize_wgt(tensor[i][:][:][:], bit)
+    channels[i][:][:][:] = quantize_wgt(tensor[i][:][:][:], bit) #qint method
     return channels
 
 def quantize_wgt(tensor, bit): #layerwise no quanatize
+    """Qint method. This function is used in def channel_wise_quantizationperchan.
+
+    Args:
+        tensor (torch.Tensor): Weight(Quantize target tensor)
+        bit (int): Bitwidth
+
+    Return:
+        channels (torch.Tensor): After quantized weight
+    """
     min_value = torch.min(tensor).item() 
     max_value = torch.max(tensor).item()
     max_scale = max_value - min_value
@@ -22,16 +42,24 @@ def quantize_wgt(tensor, bit): #layerwise no quanatize
     return q_tensor
 
 def evaluate_loss(net, device, data_loader):
+    """Calculate loss.
+
+    Args:
+        net (-): Quantize target model
+        device (torch.device): Ditwidth
+        data_loader (torch.utils.data.dataloader.DataLoader): DataLoader for training or validation 
+
+    Return:
+        loss.item() (float): Loss function of quantized target model
+    """
     #net.to(device)
     #if device == 'cuda':
         #net = torch.nn.DataParallel(net)
-    #cudnn.benchmark = True
     net.eval()
     loss = 0
     loss_sum = 0
     count = 0
     criterion = torch.nn.CrossEntropyLoss()
-    #optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
     ys = []
     ypreds =[]
     for x, y in data_loader:
@@ -47,13 +75,24 @@ def evaluate_loss(net, device, data_loader):
         count += 1       
     ys = torch.cat(ys)
     ypreds = torch.cat(ypreds)
-#    print(loss_sum)
     loss = loss_sum
     loss /= count
     #net.to("cpu")
     return loss.item()
 
 def evaluate_acc_loss_softmax(net, device, data_loader):
+    """Calculate accuracy, loss, and softmaxoutputs.
+
+    Args:
+        net (-): Quantize target model
+        device (torch.device): Ditwidth
+        data_loader (torch.utils.data.dataloader.DataLoader): DataLoader for training or validation 
+
+    Return:
+        acc.item() (float): Accuracy after quantization
+        loss.item() (float): Loss function of quantized target model
+        outputs (torch.Tensor): Softmax output
+    """
     net.to(device)
 #    if device == 'cuda':
 #        net = torch.nn.DataParallel(net)
@@ -89,6 +128,15 @@ def evaluate_acc_loss_softmax(net, device, data_loader):
     return acc.item(),loss.item(),outputs
 
 def KLdiv(n_out, out):
+    """Calculate KL divergence.
+
+    Args:
+        n_out (torch.Tensor): Softmax output before quantization 
+        out (torch.Tensor): Softmax output after quantization
+
+    Return:
+        KL.item() (float): KL divergence derived from the probability distribution of the softmax output after and before quantization
+    """
     kls = []
     for l in range(len(out)):
         for m in range(out[l].size()[0]):
@@ -99,6 +147,21 @@ def KLdiv(n_out, out):
     return KL.item()
 
 def make_divide_minusplusmodels(paramlists,dlists,index): #by valuation value(i.e. deltaloss) return type 2-D matrix
+    """Calculate positiveList and negativeList.
+
+    Args:
+        paramlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, quantization bitwidth, flag=0or1, \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        dlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, deltaloss for 8-bit quantization,\
+            deltaloss for 6-bit quantization, deltaloss for 4-bit quantization, deltaloss for 2-bit quantization],...,[same elements]}
+        index (int): Value referring to the deltaloss corresponding to the quantization bitwidth(8-bit→4, 6-bit→5, 4-bit→6, 2-bit→7) 
+
+    Return:
+        listminus (list): negativeList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(-layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        listplus (list): positiveList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+    """
     listminus=[]
     listplus=[]
     mflag=0
@@ -117,6 +180,21 @@ def make_divide_minusplusmodels(paramlists,dlists,index): #by valuation value(i.
     return listminus,listplus
 
 def make_semilayers(net,device,originaloutputs,listminus,listplus):
+    """Calculate positiveList and negativeList.
+
+    Args:
+        paramlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, quantization bitwidth, flag=0or1, \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        dlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, deltaloss for 8-bit quantization,\
+            deltaloss for 6-bit quantization, deltaloss for 4-bit quantization, deltaloss for 2-bit quantization],...,[same elements]}
+        index (int): Value referring to the deltaloss corresponding to the quantization bitwidth(8-bit→4, 6-bit→5, 4-bit→6, 2-bit→7) 
+
+    Return:
+        listminus (list): negativeList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(-layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        listplus (list): positiveList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+    """
     uselayers=[]
     semilayers=[]
     orders=[]
@@ -165,8 +243,8 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
             print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
             #append part
             orders.append([index,kldiv])   
-            #initialized
-            net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+            #initialized change original model
+            net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
             layers = [net.layer1,net.layer2,net.layer3,net.layer4]
             uselayers = []
             param=0
@@ -212,8 +290,8 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
             print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
             #append part
             orders.append([index,kldiv])   
-            #initialized
-            net = resnet_kengo.resnet34(num_classes=1000, pretrained='imagenet')
+            #initialized change original model
+            net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
             layers = [net.layer1,net.layer2,net.layer3,net.layer4]
             uselayers = []
             param=0
@@ -223,6 +301,21 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
     return semilayers,orders 
 
 def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
+    """Calculate positiveList and negativeList.
+
+    Args:
+        paramlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, quantization bitwidth, flag=0or1, \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        dlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, deltaloss for 8-bit quantization,\
+            deltaloss for 6-bit quantization, deltaloss for 4-bit quantization, deltaloss for 2-bit quantization],...,[same elements]}
+        index (int): Value referring to the deltaloss corresponding to the quantization bitwidth(8-bit→4, 6-bit→5, 4-bit→6, 2-bit→7) 
+
+    Return:
+        listminus (list): negativeList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(-layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        listplus (list): positiveList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+    """
     uselayers=[]
     semilayers=[]
     orders=[]
@@ -325,6 +418,17 @@ def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
     return semilayers,orders
 
 def make_quantizedlists(semilayers,orders):
+    """Calculate positiveList and negativeList.
+
+    Args:
+        semilayers (list): Parameters list(3-D list structure→model:[[[...]]],layer:[[...]]),channel:[...] [[[layer_index, block_index, layernumber, channelnumber, quantization bitwidth, flag=0or1, \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]]
+        orders (list): Parameters list(2-D list structure): [[index(0~),Sensitivity],...,[same elements]}
+
+    Return:
+        valuationfirsts (list): negativeList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(-layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+    """
     valuationfirsts=[]
     orders.sort(key = lambda x:x[1])
     for i in range(len(orders)):
