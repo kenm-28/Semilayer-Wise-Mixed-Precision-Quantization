@@ -217,7 +217,7 @@ valuationlayers=[]
 #classified into two groups. deltaloss plus or minus and 0.
 #3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
 #use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
-semilayers,orders=functions.make_semilayers(net2,device,originaloutputs,valuationminus,valuationplus)        
+semilayers,orders=functions.make_semilayers_resnet18(net2,device,originaloutputs,valuationminus,valuationplus)        
 #list sort
 valuationfirsts=functions.make_quantizedlists(semilayers,orders)
 
@@ -300,7 +300,7 @@ if postponingflag==0:
     #classified into two groups. deltaloss plus or minus and 0.
     #3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
     #use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
-    semilayers,orders=functions.make_semilayers(net2,device,originaloutputs,valuationminus,valuationplus)       
+    semilayers,orders=functions.make_semilayers_resnet18(net2,device,originaloutputs,valuationminus,valuationplus)       
     #list sort
     valuationfirsts=functions.make_quantizedlists(semilayers,orders)
     #mix-precision part
@@ -375,7 +375,7 @@ if postponingflag==0:
     #classified into two groups. deltaloss plus or minus and 0.
     #3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
     #use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
-    semilayers,orders=functions.make_semilayers(net2,device,originaloutputs,valuationminus,valuationplus)        
+    semilayers,orders=functions.make_semilayers_resnet18(net2,device,originaloutputs,valuationminus,valuationplus)        
     #list sort
     valuationfirsts=functions.make_quantizedlists(semilayers,orders)
     #mix-precision part
@@ -449,7 +449,7 @@ if postponingflag==0:
     #classified into two groups. deltaloss plus or minus and 0.
     #3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
     #use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
-    semilayers,orders=functions.make_semilayers(net2,device,originaloutputs,valuationminus,valuationplus)        
+    semilayers,orders=functions.make_semilayers_resnet18(net2,device,originaloutputs,valuationminus,valuationplus)        
     #list sort
     valuationfirsts=functions.make_quantizedlists(semilayers,orders)
     #mix-precision part
@@ -523,7 +523,7 @@ if postponingflag==0:
     #classified into two groups. deltaloss plus or minus and 0.
     #3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
     #use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
-    semilayers,orders=functions.make_semilayers(net2,device,originaloutputs,valuationminus,valuationplus)        
+    semilayers,orders=functions.make_semilayers_resnet18(net2,device,originaloutputs,valuationminus,valuationplus)        
     #list sort
     valuationfirsts=functions.make_quantizedlists(semilayers,orders)
     #mix-precision part
@@ -601,7 +601,7 @@ valuationnexts=[]
 #classified into two groups. deltaloss plus or minus and 0.
 #3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
 #use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
-semilayers,orders=functions.make_semilayers(net2,device,originaloutputs,valuationminus,valuationplus)        
+semilayers,orders=functions.make_semilayers_resnet18(net2,device,originaloutputs,valuationminus,valuationplus)        
 #list sort
 valuationpostponings=functions.make_quantizedlists(semilayers,orders)
 inferenceflag=1

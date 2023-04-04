@@ -19,10 +19,10 @@ def channel_wise_quantizationperchan(tensor, bit, i):
     """
     channels = 0
     channels = tensor
-    channels[i][:][:][:] = quantize_wgt(tensor[i][:][:][:], bit) #qint method
+    channels[i][:][:][:] = quantize_wgt(tensor[i][:][:][:], bit)
     return channels
 
-def quantize_wgt(tensor, bit): #layerwise no quanatize
+def quantize_wgt(tensor, bit):
     """Qint method. This function is used in def channel_wise_quantizationperchan.
 
     Args:
@@ -35,7 +35,8 @@ def quantize_wgt(tensor, bit): #layerwise no quanatize
     min_value = torch.min(tensor).item() 
     max_value = torch.max(tensor).item()
     max_scale = max_value - min_value
-    scale = (max_value - min_value) / (2**bit -1)  #Qmax - Qmin = 7-(-8) = 15
+    #Qmax - Qmin = 7-(-8) = 15
+    scale = (max_value - min_value) / (2**bit -1)
     z = round(min_value/scale)
     q_tensor = (((tensor/scale) + z).round() - z) * scale 
 
@@ -110,9 +111,9 @@ def evaluate_acc_loss_softmax(net, device, data_loader):
         y = y.to(device)
         with torch.no_grad():
             output = net(x)
-            _, y_pred = output.max(1) #use for calculating acc
-            loss = criterion(output, y) #use for calculating loss
-            #use for calculating output after softmax function
+            _, y_pred = output.max(1)
+            loss = criterion(output, y)
+            #Calculate softmax output
             softmaxoutput = softmax(output)
             outputs.append(softmaxoutput)
         ys.append(y)
@@ -143,10 +144,11 @@ def KLdiv(n_out, out):
             #print(n_out[l][m].size())
             kl = (n_out[l][m] * (n_out[l][m] / out[l][m]).log()).sum()
             kls.append(kl)
-    KL = sum(kls)/len(kls) #Average of KLdiv from 50000 input
+     #Average of KLdiv from the number of inputs
+    KL = sum(kls)/len(kls)
     return KL.item()
 
-def make_divide_minusplusmodels(paramlists,dlists,index): #by valuation value(i.e. deltaloss) return type 2-D matrix
+def make_divide_minusplusmodels(paramlists,dlists,index):
     """Calculate positiveList and negativeList.
 
     Args:
@@ -167,8 +169,10 @@ def make_divide_minusplusmodels(paramlists,dlists,index): #by valuation value(i.
     mflag=0
     pflag=1
     for i in range(len(paramlists)):
+        #negative deltaloss
         if dlists[i][index]<=0:
             listminus.append([paramlists[i][0],paramlists[i][1],paramlists[i][2],paramlists[i][3],paramlists[i][4],mflag,paramlists[i][6],paramlists[i][7]])
+        #positive deltaloss
         else:
             listplus.append([paramlists[i][0],paramlists[i][1],paramlists[i][2],paramlists[i][3],paramlists[i][4],pflag,paramlists[i][6],paramlists[i][7]])
         if i==len(paramlists)-1:
@@ -179,7 +183,7 @@ def make_divide_minusplusmodels(paramlists,dlists,index): #by valuation value(i.
             pflag+=1
     return listminus,listplus
 
-def make_semilayers(net,device,originaloutputs,listminus,listplus):
+def make_semilayers_resnet18(net,device,originaloutputs,listminus,listplus):
     """Calculate positiveList and negativeList.
 
     Args:
@@ -201,8 +205,8 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
     param=0
     counta=0
     index=0
-    listminus.append([0,0,100,0,0,0,0,0]) #append dummy data
-    listplus.append([0,0,100,0,0,0,0,0]) #append dummy data
+    listminus.append([0,0,100,0,0,0,0,0]) #Append dummy data
+    listplus.append([0,0,100,0,0,0,0,0]) #Append dummy data
     layers = [net.layer1,net.layer2,net.layer3,net.layer4]
     for i in range(len(listminus)):
         layer_index=listminus[i][0]
@@ -222,28 +226,170 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
             ratio=0.875
         elif w_bit==2:
             ratio=0.9375
-        else:
-            ratio=0.96875
-        
+
+        #IF dummy data accesses, exit the loop
         if lnum==100:
             break
+        #Append part
         uselayers.append([layer_index,block_index,lnum,cnum,w_bit,flag,selectedbit,channelindex])
+        #Channel of odd layer quantization
         if lnum%2!=0:
             layers[layer_index][block_index].conv1.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv1.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv1.weight[cnum].data.numel()*ratio
+        #Channel of even layer quantization
         else:
             layers[layer_index][block_index].conv2.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv2.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv2.weight[cnum].data.numel()*ratio
         counta+=1
+        #Per semilayer
         if lnum!=listminus[i+1][2]:
+            #Append part
             semilayers.append(uselayers)
+            #Calculate softmax output after and before quantization
             acc,loss,afteroutputs = evaluate_acc_loss_softmax(net, device, imagenet.val_loader)
+            #Calculate KL divergence
             kldiv = KLdiv(originaloutputs,afteroutputs)
+            #Calculate sensitivity(KL divergence divided by the number of semilayer parameters) 
             kldiv = kldiv/param
             print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
-            #append part
-            orders.append([index,kldiv])   
-            #initialized change original model
+            #Append part
+            orders.append([index,kldiv])
+            #Model initialization
+            net = resnet.resnet18(num_classes=1000, pretrained='imagenet')
+            layers = [net.layer1,net.layer2,net.layer3,net.layer4]
+            uselayers = []
+            param=0
+            counta=0
+            index+=1
+
+    for i in range(len(listplus)):
+        layer_index=listplus[i][0]
+        block_index=listplus[i][1]
+        lnum=listplus[i][2]
+        cnum=listplus[i][3]
+        w_bit=listplus[i][4]
+        flag=listplus[i][5]
+        selectedbit=listplus[i][6]
+        channelindex=listplus[i][7]
+
+        if w_bit==8:
+            ratio=0.75
+        elif w_bit==6:
+            ratio=0.8125
+        elif w_bit==4:
+            ratio=0.875
+        elif w_bit==2:
+            ratio=0.9375
+        
+        #IF dummy data accesses, exit the loop
+        if lnum==100:
+            break
+        #Append part
+        uselayers.append([layer_index,block_index,lnum,cnum,w_bit,flag,selectedbit,channelindex])
+        #Channel of odd layer quantization
+        if lnum%2!=0:
+            layers[layer_index][block_index].conv1.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv1.weight.data, w_bit, cnum)
+            param+=layers[layer_index][block_index].conv1.weight[cnum].data.numel()*ratio
+        #Channel of even layer quantization
+        else:
+            layers[layer_index][block_index].conv2.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv2.weight.data, w_bit, cnum)
+            param+=layers[layer_index][block_index].conv2.weight[cnum].data.numel()*ratio
+        counta+=1
+        #Per semilayer
+        if lnum!=listplus[i+1][2]:
+            #Append part
+            semilayers.append(uselayers)
+            #Calculate softmax output after and before quantization
+            acc,loss,afteroutputs = evaluate_acc_loss_softmax(net, device, imagenet.val_loader)
+            #Calculate KL divergence
+            kldiv = KLdiv(originaloutputs,afteroutputs)
+            #Calculate sensitivity(KL divergence divided by the number of semilayer parameters) 
+            kldiv = kldiv/param
+            print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
+            #Append part
+            orders.append([index,kldiv])
+            #Model initialization
+            net = resnet.resnet18(num_classes=1000, pretrained='imagenet')
+            layers = [net.layer1,net.layer2,net.layer3,net.layer4]
+            uselayers = []
+            param=0
+            counta=0
+            index+=1
+
+    return semilayers,orders 
+
+def make_semilayers_resnet34(net,device,originaloutputs,listminus,listplus):
+    """Calculate positiveList and negativeList.
+
+    Args:
+        paramlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, quantization bitwidth, flag=0or1, \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        dlists (list): Parameters list(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, deltaloss for 8-bit quantization,\
+            deltaloss for 6-bit quantization, deltaloss for 4-bit quantization, deltaloss for 2-bit quantization],...,[same elements]}
+        index (int): Value referring to the deltaloss corresponding to the quantization bitwidth(8-bit→4, 6-bit→5, 4-bit→6, 2-bit→7) 
+
+    Return:
+        listminus (list): negativeList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(-layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+        listplus (list): positiveList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(layernumber), \
+            selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]
+    """
+    uselayers=[]
+    semilayers=[]
+    orders=[]
+    param=0
+    counta=0
+    index=0
+    listminus.append([0,0,100,0,0,0,0,0]) #Append dummy data
+    listplus.append([0,0,100,0,0,0,0,0]) #Append dummy data
+    layers = [net.layer1,net.layer2,net.layer3,net.layer4]
+    for i in range(len(listminus)):
+        layer_index=listminus[i][0]
+        block_index=listminus[i][1]
+        lnum=listminus[i][2]
+        cnum=listminus[i][3]
+        w_bit=listminus[i][4]
+        flag=listminus[i][5]
+        selectedbit=listminus[i][6]
+        channelindex=listminus[i][7]
+
+        if w_bit==8:
+            ratio=0.75
+        elif w_bit==6:
+            ratio=0.8125
+        elif w_bit==4:
+            ratio=0.875
+        elif w_bit==2:
+            ratio=0.9375
+        
+        #IF dummy data accesses, exit the loop
+        if lnum==100:
+            break
+        #Append part
+        uselayers.append([layer_index,block_index,lnum,cnum,w_bit,flag,selectedbit,channelindex])
+        #Channel of odd layer quantization
+        if lnum%2!=0:
+            layers[layer_index][block_index].conv1.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv1.weight.data, w_bit, cnum)
+            param+=layers[layer_index][block_index].conv1.weight[cnum].data.numel()*ratio
+        #Channel of even layer quantization
+        else:
+            layers[layer_index][block_index].conv2.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv2.weight.data, w_bit, cnum)
+            param+=layers[layer_index][block_index].conv2.weight[cnum].data.numel()*ratio
+        counta+=1
+        #Per semilayer
+        if lnum!=listminus[i+1][2]:
+            #Append part
+            semilayers.append(uselayers)
+            #Calculate softmax output after and before quantization
+            acc,loss,afteroutputs = evaluate_acc_loss_softmax(net, device, imagenet.val_loader)
+            #Calculate KL divergence
+            kldiv = KLdiv(originaloutputs,afteroutputs)
+            #Calculate sensitivity(KL divergence divided by the number of semilayer parameters) 
+            kldiv = kldiv/param
+            print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
+            #Append part
+            orders.append([index,kldiv])
+            #Model initialization
             net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
             layers = [net.layer1,net.layer2,net.layer3,net.layer4]
             uselayers = []
@@ -269,28 +415,35 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
             ratio=0.875
         elif w_bit==2:
             ratio=0.9375
-        else:
-            ratio=0.96875
         
+        #IF dummy data accesses, exit the loop
         if lnum==100:
             break
+        #Append part
         uselayers.append([layer_index,block_index,lnum,cnum,w_bit,flag,selectedbit,channelindex])
+        #Channel of odd layer quantization
         if lnum%2!=0:
             layers[layer_index][block_index].conv1.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv1.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv1.weight[cnum].data.numel()*ratio
+        #Channel of even layer quantization
         else:
             layers[layer_index][block_index].conv2.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv2.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv2.weight[cnum].data.numel()*ratio
         counta+=1
+        #Per semilayer
         if lnum!=listplus[i+1][2]:
+            #Append part
             semilayers.append(uselayers)
+            #Calculate softmax output after and before quantization
             acc,loss,afteroutputs = evaluate_acc_loss_softmax(net, device, imagenet.val_loader)
+            #Calculate KL divergence
             kldiv = KLdiv(originaloutputs,afteroutputs)
+            #Calculate sensitivity(KL divergence divided by the number of semilayer parameters) 
             kldiv = kldiv/param
             print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
-            #append part
-            orders.append([index,kldiv])   
-            #initialized change original model
+            #Append part
+            orders.append([index,kldiv])
+            #Model initialization
             net = resnet.resnet34(num_classes=1000, pretrained='imagenet')
             layers = [net.layer1,net.layer2,net.layer3,net.layer4]
             uselayers = []
@@ -298,7 +451,7 @@ def make_semilayers(net,device,originaloutputs,listminus,listplus):
             counta=0
             index+=1
 
-    return semilayers,orders 
+    return semilayers,orders
 
 def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
     """Calculate positiveList and negativeList.
@@ -334,6 +487,7 @@ def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
         flag=listminus[i][5]
         selectedbit=listminus[i][6]
         channelindex=listminus[i][7]
+
         if w_bit==8:
             ratio=0.75
         elif w_bit==6:
@@ -341,9 +495,12 @@ def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
         elif w_bit==4:
             ratio=0.875
         
+        #IF dummy data accesses, exit the loop
         if lnum==100:
             break
+        #Append part
         uselayers.append([layer_index,block_index,lnum,cnum,w_bit,flag,selectedbit,channelindex])
+        #Quantization
         if lnum%3==1:
             layers[layer_index][block_index].conv1.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv1.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv1.weight[cnum].data.numel()*ratio
@@ -354,15 +511,20 @@ def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
             layers[layer_index][block_index].conv3.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv3.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv3.weight[cnum].data.numel()*ratio
         counta+=1
+        #Per semilayer
         if lnum!=listminus[i+1][2]:
+            #Append part
             semilayers.append(uselayers)
+            #Calculate softmax output after and before quantization
             acc,loss,afteroutputs = evaluate_acc_loss_softmax(net, device, imagenet.val_loader)
+            #Calculate KL divergence
             kldiv = KLdiv(originaloutputs,afteroutputs)
+            #Calculate sensitivity(KL divergence divided by the number of semilayer parameters) 
             kldiv = kldiv/param
             print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
-            #append part
-            orders.append([index,kldiv])   
-            #initialized
+            #Append part
+            orders.append([index,kldiv])
+            #Model initialization
             net = resnet.resnet50(num_classes=1000, pretrained='imagenet')
             layers = [net.layer1,net.layer2,net.layer3,net.layer4]
             uselayers = []
@@ -386,9 +548,12 @@ def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
         elif w_bit==4:
             ratio=0.875
         
+        #IF dummy data accesses, exit the loop
         if lnum==100:
             break
+        #Append part
         uselayers.append([layer_index,block_index,lnum,cnum,w_bit,flag,selectedbit,channelindex])
+        #Quantization 
         if lnum%3==1:
             layers[layer_index][block_index].conv1.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv1.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv1.weight[cnum].data.numel()*ratio
@@ -399,15 +564,20 @@ def make_semilayers_resnet50(net,device,originaloutputs,listminus,listplus):
             layers[layer_index][block_index].conv3.weight.data = channel_wise_quantizationperchan(layers[layer_index][block_index].conv3.weight.data, w_bit, cnum)
             param+=layers[layer_index][block_index].conv3.weight[cnum].data.numel()*ratio
         counta+=1
+        #Per semilayer
         if lnum!=listplus[i+1][2]:
+            #Append part
             semilayers.append(uselayers)
+            #Calculate softmax output after and before quantization
             acc,loss,afteroutputs = evaluate_acc_loss_softmax(net, device, imagenet.val_loader)
+            #Calculate KL divergence
             kldiv = KLdiv(originaloutputs,afteroutputs)
+            #Calculate sensitivity(KL divergence divided by the number of semilayer parameters) 
             kldiv = kldiv/param
             print(w_bit,'bit','semilayer-No.',index,'layernumber=',lnum,'channels=',counta,'total KL divergence=',kldiv)
-            #append part
-            orders.append([index,kldiv])   
-            #initialized
+            #Append part
+            orders.append([index,kldiv])
+            #Model initialization
             net = resnet.resnet50(num_classes=1000, pretrained='imagenet')
             layers = [net.layer1,net.layer2,net.layer3,net.layer4]
             uselayers = []
@@ -423,7 +593,7 @@ def make_quantizedlists(semilayers,orders):
     Args:
         semilayers (list): Parameters list(3-D list structure→model:[[[...]]],layer:[[...]]),channel:[...] [[[layer_index, block_index, layernumber, channelnumber, quantization bitwidth, flag=0or1, \
             selected quantization bitwidth(original model:32) ,number of all channels in convolution layers],...,[same elements]]]
-        orders (list): Parameters list(2-D list structure): [[index(0~),Sensitivity],...,[same elements]}
+        orders (list): Parameters list(2-D list structure): [[layernumber-1,Sensitivity],...,[same elements]}
 
     Return:
         valuationfirsts (list): negativeList(2-D list structure): [[layer_index, block_index, layernumber, channelnumber, flag(-layernumber), \
@@ -432,10 +602,11 @@ def make_quantizedlists(semilayers,orders):
     valuationfirsts=[]
     orders.sort(key = lambda x:x[1])
     for i in range(len(orders)):
-        inum=orders[i][0] #minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
-        for j in range(len(semilayers[inum])): #2-D matrix
+        inum=orders[i][0]
+        for j in range(len(semilayers[inum])):
             valuationfirsts.append([semilayers[inum][j][0],semilayers[inum][j][1],semilayers[inum][j][2],semilayers[inum][j][3],semilayers[inum][j][4],semilayers[inum][j][5],semilayers[inum][j][6],semilayers[inum][j][7]])
         print('debug layernum=',semilayers[inum][-1][2],'number of channels=',len(semilayers[inum]))
     print('number of valuationfirsts list=',len(valuationfirsts))
+    #Append dummy data
     valuationfirsts.append([0,0,100,0,0,0,0,0])
     return valuationfirsts
