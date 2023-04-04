@@ -7,9 +7,9 @@ from torch.utils.data import (Dataset,
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 
-
-traindir = os.path.join('/home/dnn/nas/ImageNet1', 'ILSVRC2012_img_train')
-valdir = os.path.join('/home/dnn/nas/ImageNet1', 'val')
+#changes ./hogehoge to match your directory hierarchy. 
+traindir = os.path.join('./hogehoge', 'train')
+valdir = os.path.join('./hogehoge', 'val')
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
