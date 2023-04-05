@@ -529,7 +529,7 @@ print('done')
 
 
 #Make csv file/filename should be adjusted
-with open("q_answer/mix/ResNet18ImageNetpq86421bit_accs_semilayer_sortnorkl_lowerdlossplusminus.csv", "a") as f:
+with open("output/ResNet18_output.csv", "a") as f:
     writer = csv.writer(f)
     writer.writerow(printparams)
     writer.writerow(printaccs)
