@@ -136,14 +136,14 @@ with open("dataset/resnet34_deltaloss.csv",encoding = "utf-8-sig") as f:
         num+=1
 print('deltaloss list done.')
 
-#Sort by all channels index 1~3840
+#Sort by all channels index 1~7552
 valuationlayers.sort(key = lambda x:x[7])
 #8-bit quantization
 valuationminus,valuationplus=functions.make_divide_minusplusmodels(valuationlayers,valuationds,4)
 valuationlayers=[]
 #Divided into two groups whether whether deltaloss is positive or negative.
-#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,15=layer16} Positive index={16=layer1,...,31=layer16}
-#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
+#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,31=layer32} Positive index={32=layer1,...,63=layer32}
+#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~63} 
 semilayers,orders=functions.make_semilayers_resnet34(net2,device,originaloutputs,valuationminus,valuationplus)        
 #List sort
 valuationfirsts=functions.make_quantizedlists(semilayers,orders)
@@ -225,14 +225,14 @@ for i in range(len(valuationfirsts)):
         counta=0
         lists=[]
 
-#Sort by all channels index 1~3840
+#Sort by all channels index 1~7552
 valuationlayers.sort(key = lambda x:x[7])
 #6-bit quantization
 valuationminus,valuationplus=functions.make_divide_minusplusmodels(valuationlayers,valuationds,5) #memo each 2-D matrix
 valuationlayers=[]
 #Divided into two groups whether whether deltaloss is positive or negative.
-#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,15=layer16} Positive index={16=layer1,...,31=layer16}
-#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
+#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,31=layer32} Positive index={32=layer1,...,63=layer32}
+#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~63} 
 semilayers,orders=functions.make_semilayers_resnet34(net2,device,originaloutputs,valuationminus,valuationplus)       
 #List sort
 valuationfirsts=functions.make_quantizedlists(semilayers,orders)
@@ -305,14 +305,14 @@ for i in range(len(valuationfirsts)):
         counta=0
         lists=[]
 
-#Sort by all channels index 1~3840
+#Sort by all channels index 1~7552
 valuationlayers.sort(key = lambda x:x[7])
 #4-bit quantization
 valuationminus,valuationplus=functions.make_divide_minusplusmodels(valuationlayers,valuationds,6) #memo each 2-D matrix
 valuationlayers=[]
 #Divided into two groups whether whether deltaloss is positive or negative.
-#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,15=layer16} Positive index={16=layer1,...,31=layer16}
-#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
+#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,31=layer32} Positive index={32=layer1,...,63=layer32}
+#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~63} 
 semilayers,orders=functions.make_semilayers_resnet34(net2,device,originaloutputs,valuationminus,valuationplus)        
 #List sort
 valuationfirsts=functions.make_quantizedlists(semilayers,orders)
@@ -385,13 +385,13 @@ for i in range(len(valuationfirsts)):
         counta=0
         lists=[]
 
-#Sort by all channels index 1~3840
+#Sort by all channels index 1~7552
 valuationlayers.sort(key = lambda x:x[7])
 valuationminus,valuationplus=functions.make_divide_minusplusmodels(valuationlayers,valuationds,7) #memo each 2-D matrix
 valuationlayers=[]
 #Divided into two groups whether whether deltaloss is positive or negative.
-#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,15=layer16} Positive index={16=layer1,...,31=layer16}
-#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
+#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,31=layer32} Positive index={32=layer1,...,63=layer32}
+#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~63} 
 semilayers,orders=functions.make_semilayers_resnet34(net2,device,originaloutputs,valuationminus,valuationplus)        
 #List sort
 valuationfirsts=functions.make_quantizedlists(semilayers,orders)
@@ -465,7 +465,7 @@ for i in range(len(valuationfirsts)):
         lists=[]
 
 print('Postponing Phase')
-#Sort by all channels index 1~3840
+#Sort by all channels index 1~7552
 valuationlayers.sort(key = lambda x:x[7])
 for v in range(len(valuationlayers)):
     selectedbit=valuationlayers[v][6]
@@ -474,9 +474,9 @@ for v in range(len(valuationlayers)):
 #deltaloss list index=={0:layer_index,1:block_index,2:layernum,3:channelnum,4:8bit,5:6bit,6:4bit,7:2bit,8:1bit,9:pruning}
 valuationminus,valuationplus=functions.make_divide_minusplusmodels(valuationnexts,valuationds,5) #memo each 2-D matrix
 valuationnexts=[]
-#classified into two groups. deltaloss plus or minus and 0.
-#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] minus index={0=layer1,...,15=layer16} plus index={16=layer1,...,31=layer16}
-#use for quantized semilayer order=[index,semilayer KL divergence] index={0~31} 
+#Divided into two groups whether whether deltaloss is positive or negative.
+#3D-matrix ex:[[[lnum,cnum,...]],[[lnum,cnum,...]]] Negative index={0=layer1,...,31=layer32} Positive index={32=layer1,...,63=layer32}
+#Use for quantized semilayer order=[index,semilayer KL divergence] index={0~63} 
 semilayers,orders=functions.make_semilayers_resnet34(net2,device,originaloutputs,valuationminus,valuationplus)        
 #List sort
 valuationpostponings=functions.make_quantizedlists(semilayers,orders)
