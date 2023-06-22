@@ -58,7 +58,7 @@ print('preacc=',preacc)
 #Make list about deltaloss
 count=0
 num=0
-with open("dataset/resNet18_deltaloss.csv",encoding = "utf-8-sig") as f:
+with open("dataset/resnet18_deltaloss.csv",encoding = "utf-8-sig") as f:
     reader = csv.reader(f)
     for row in reader:
         if count == 0: 
